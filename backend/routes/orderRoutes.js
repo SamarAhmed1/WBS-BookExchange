@@ -7,7 +7,7 @@ const { protect } = require('../middleware/auth');
 // Create a purchase order
 router.post('/buy', protect, async (req, res, next) => {
   try {
-    const { bookId, paymentMethod, shippingAddress } = req.body;
+    const { bookId, paymentMethod, shippingAddress, phone } = req.body;
 
     const book = await Book.findById(bookId);
     if (!book || book.listingType !== 'sell' || !book.available) {
@@ -20,10 +20,12 @@ router.post('/buy', protect, async (req, res, next) => {
       type: 'purchase',
       totalAmount: book.price,
       paymentMethod,
-      shippingAddress
+      shippingAddress,
+      phone,
     });
 
-    book.available = false; // Mark book as sold/unavailable
+    // Mark book as sold
+    book.available = false;
     book.status = 'sold';
     await book.save();
 
@@ -44,28 +46,33 @@ router.post('/swap', protect, async (req, res, next) => {
     }
 
     const offeredBook = await Book.findById(offeredBookId);
-    if (!offeredBook || offeredBook.owner.toString() !== req.user.id || !offeredBook.validated) {
-      return res.status(400).json({ message: 'Your offered book must be validated by an admin first' });
+    if (!offeredBook || offeredBook.owner.toString() !== req.user.id) {
+      return res.status(400).json({ message: 'Invalid offered book' });
     }
 
     const order = await Order.create({
       buyer: req.user.id,
       book: targetBookId,
       type: 'swap',
-      offeredBook: offeredBookId
+      offeredBook: offeredBookId,
     });
 
-    // We don't mark as unavailable until swap is confirmed by the other user, but we could set status pending.
+    // Mark target book as pending swap
+    targetBook.status = 'pending';
+    await targetBook.save();
+
     res.status(201).json(order);
   } catch (err) {
     next(err);
   }
 });
 
-// Get user's orders (purchases and swaps)
+// Get user's orders
 router.get('/my-orders', protect, async (req, res, next) => {
   try {
-    const orders = await Order.find({ buyer: req.user.id }).populate('book offeredBook');
+    const orders = await Order.find({ buyer: req.user.id })
+      .populate('book offeredBook')
+      .sort({ createdAt: -1 });
     res.json(orders);
   } catch (err) {
     next(err);

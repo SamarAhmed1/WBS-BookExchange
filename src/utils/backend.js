@@ -1,4 +1,4 @@
-const API = 'http://localhost:5001/api';
+const API = '/api';
 const TOKEN_KEY = 'be:token';
 const CART_KEY = 'be:cart';
 
@@ -153,6 +153,7 @@ export const backend = {
           bookId,
           paymentMethod: billingInfo.paymentMethod,
           shippingAddress: billingInfo.address,
+          phone: billingInfo.phone || '',
         }),
       });
     }
